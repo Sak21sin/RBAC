@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sakshi's RBAC</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #eaf2f8;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .username-display {
+            text-align: center;
+            font-size: 1.2em;
+            color: #16a085;
+            margin-bottom: 20px;
+        }
+        h3 {
+            color: #34495e;
+        }
+        input, select, button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            background: #ecf0f1;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+        }
+        .logout-container {
+            margin-top: 20px;
+        }
+        .logout-button {
+            background-color: #e74c3c;
+            color: white;
+        }
+        .logout-button:hover {
+            background-color: #c0392b;
+        }
+
+        .resources-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f4f6f7;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>RBAC System</h2>
+        <div class="username-display" id="username-display">Welcome, Guest</div>
+        <div id="response"></div>
+        <!-- resources -->
+        <div class="resources-container" id="resources-container">
+            <ul id="resources-list"></ul>
+        </div>
+
+        <div>
+            <h3>Register</h3>
+            <input id="reg-username" placeholder="Username">
+            <input id="reg-password" type="password" placeholder="Password">
+            <select id="reg-role">
+                <option value="user">User</option>
+                <option value="moderator">Moderator</option>
+                <option value="admin">Admin</option>
+            </select>
+            <button onclick="register()">Register</button>
+        </div>
+
+        <div>
+            <h3>Login</h3>
+            <input id="login-username" placeholder="Username">
+            <input id="login-password" type="password" placeholder="Password">
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div>
+            <h3>Test Endpoints</h3>
+            <button  onclick="profile()">User Profile</button>
+            <button  onclick="moderator_dashboard()">Moderator Dashboard</button>
+            <button  onclick="dashboard()">Admin Dashboard</button>
+            
+        </div>
+
+        <div class="logout-container">
+            <h3>Logout</h3>
+            <button class="logout-button" onclick="logout()">Logout</button>
+        </div>
+
+        
+    </div>
+
+    <script>
+        let token = '';
+        let loggedInUsername = 'Guest';
+        
+        
+        function updateUsernameDisplay() {
+            const usernameDisplay = document.getElementById('username-display');
+            usernameDisplay.textContent = `Welcome, ${loggedInUsername}`;
+        }
+
+        function showResponse(msg) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerText = msg;
+
+            responseDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+
+        function displayResources(resources) {
+            const resourcesContainer = document.getElementById('resources-container');
+            const resourcesList = document.getElementById('resources-list');
+            resourcesList.innerHTML = '';  // Clear previous list
+
+            resources.forEach(resource => {
+                const li = document.createElement('li');
+                li.textContent = resource;
+                resourcesList.appendChild(li);
+            });
+
+            resourcesContainer.style.display = 'block'; // Show the resources section
+        }
+
+
+        async function register() {
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+            const role = document.getElementById('reg-role').value;
+
+            const res = await fetch('/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, role })
+            });
+            
+            const data = await res.json();
+            showResponse(data.message || data.error + " !!!");
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            const res = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            token = data.token || '';
+            if (data.token) {
+                loggedInUsername = data.username || 'Guest';
+                updateUsernameDisplay();
+            }
+            showResponse(data.message || data.error + " !!!");
+        }
+
+        async function profile() {
+            const res = await fetch('/user/profile', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            const data = await res.json();
+            if(data.accessible_resources){
+               displayResources(data.accessible_resources);
+            }
+            showResponse(data.message || data.error + " !!!");
+        }
+
+
+        async function moderator_dashboard() {
+            const res = await fetch('/moderator/moderator_dashboard', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            const data = await res.json();
+            if(data.accessible_resources){
+               displayResources(data.accessible_resources);
+            }
+            showResponse(data.message || data.error + " !!!");
+        }
+
+        async function dashboard() {
+            const res = await fetch('/admin/dashboard', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            const data = await res.json();
+
+            if(data.accessible_resources){
+               displayResources(data.accessible_resources);
+            }
+            
+            showResponse(data.message || data.error + " !!!");
+            
+        }
+
+        async function logout() {
+            if (!token) {
+                showResponse('You are not logged in.');
+                return;
+            }
+
+            const res = await fetch('/auth/logout', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            token = ''; // Clear the token after logout
+            loggedInUsername = 'Guest';
+            updateUsernameDisplay();
+            const resourcesList = document.getElementById('resources-list');
+            resourcesList.innerHTML = '';  // Clear 
+            showResponse(data.message || data.error + "!!!");
+        }
+    </script>
+</body>
+</html>
